@@ -98,6 +98,7 @@ backend/
     │   ├── simulator.py          # SimulatedMarketDataSource + seed profiles
     │   ├── massive.py            # MassiveMarketDataSource + parse_snapshot
     │   ├── service.py            # MarketDataService (poll loop) + factory
+    │   ├── deps.py               # get_market() FastAPI dependency
     │   └── sse.py                # format_sse + /api/stream/prices router
     └── ...                       # portfolio/, watchlist/, chat/, db/ (other designs)
 
@@ -346,8 +347,10 @@ class SourceUnavailableError(MarketDataError):
 ```
 
 The REST layer maps `UnknownTickerError` → HTTP 404 on watchlist add and
-HTTP 422 on trades; everything else is logged and never surfaces to the user
-as anything but a stale price.
+HTTP 422 on trades. The other three can only reach a request handler through
+`track()` / `ensure_price()` (an on-demand provider call); there they map to
+HTTP 503 so the client can retry. Inside the poll loop they are logged and
+backed off, and the user sees nothing but a stale price.
 
 ---
 
@@ -1194,6 +1197,16 @@ app = FastAPI(title="FinAlly", lifespan=lifespan)
 app.include_router(stream_router)
 # ... portfolio, watchlist, chat, health routers ...
 app.mount("/", StaticFiles(directory="static", html=True), name="frontend")   # last
+```
+
+The dependency that routers use to reach the service lives in its own module
+so that routers never import `main` (which imports the routers):
+
+```python
+# backend/app/market_data/deps.py
+from fastapi import Request
+
+from .service import MarketDataService
 
 
 def get_market(request: Request) -> MarketDataService:
@@ -1257,6 +1270,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from ..config import MarketDataSettings, get_market_data_settings
+from .deps import get_market
 from .service import MarketDataService
 
 router = APIRouter(prefix="/api/stream", tags=["stream"])
@@ -1268,10 +1282,6 @@ def format_sse(data: dict, event: str | None = None) -> str:
         lines.append(f"event: {event}")
     lines.append("data: " + json.dumps(data, separators=(",", ":")))
     return "\n".join(lines) + "\n\n"
-
-
-def _get_market(request: Request) -> MarketDataService:
-    return request.app.state.market
 
 
 async def price_events(
@@ -1314,7 +1324,7 @@ async def price_events(
 @router.get("/prices")
 async def stream_prices(
     request: Request,
-    market: MarketDataService = Depends(_get_market),
+    market: MarketDataService = Depends(get_market),
     settings: MarketDataSettings = Depends(get_market_data_settings),
 ) -> StreamingResponse:
     return StreamingResponse(
@@ -1396,8 +1406,8 @@ ticker is new. The detailed chart uses the same buffer at full resolution.
 # backend/app/watchlist/routes.py (relevant parts)
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..market_data import MarketDataService, UnknownTickerError
-from ..main import get_market
+from ..market_data import MarketDataError, MarketDataService, UnknownTickerError
+from ..market_data.deps import get_market
 
 router = APIRouter(prefix="/api/watchlist")
 
@@ -1417,6 +1427,8 @@ async def add_to_watchlist(body: AddTickerBody, db=Depends(get_db), market: Mark
         entry = await market.track(body.ticker)     # validates + primes the cache
     except UnknownTickerError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except MarketDataError as exc:                  # 429 / 5xx / network from the provider
+        raise HTTPException(status_code=503, detail=f"Market data unavailable: {exc}")
     db.watchlist_add(entry.ticker)                  # idempotent on UNIQUE(user_id, ticker)
     return {"ticker": entry.ticker, "quote": entry.to_dict()}
 
@@ -1441,7 +1453,9 @@ async def execute_trade(db, market: MarketDataService, ticker: str, side: str, q
     try:
         price = await market.ensure_price(ticker)   # tracks if needed; raises for unknown symbol
     except UnknownTickerError as exc:
-        raise TradeError(str(exc))
+        raise TradeError(str(exc))                  # -> 422
+    except MarketDataError as exc:
+        raise TradeError(f"Market data unavailable, try again: {exc}")   # -> 503
     # ... cash / position validation, write trades + positions rows, snapshot ...
 ```
 
@@ -1814,18 +1828,28 @@ async def test_contract(source: MarketDataSource):
 
 ```python
 # backend/tests/market_data/test_sse.py
+#
+# httpx.ASGITransport buffers the complete response body before returning, so
+# it can never be used against an endless SSE generator. Drive the generator
+# directly with a stub request that reports "disconnected" after N checks;
+# the StreamingResponse wrapper and headers are covered by the Playwright
+# "prices are streaming" scenario.
 import json
-
-import httpx
-import pytest
-from fastapi import FastAPI
 
 from app.config import MarketDataSettings
 from app.market_data.cache import PriceCache
 from app.market_data.service import MarketDataService
 from app.market_data.simulator import SimulatedMarketDataSource
-from app.market_data.sse import router
-from app.config import get_market_data_settings
+from app.market_data.sse import format_sse, price_events
+
+
+class _StubRequest:
+    def __init__(self, checks_before_disconnect: int) -> None:
+        self._left = checks_before_disconnect
+
+    async def is_disconnected(self) -> bool:
+        self._left -= 1
+        return self._left < 0
 
 
 def _parse_events(raw: str) -> list[tuple[str, dict]]:
@@ -1842,37 +1866,43 @@ def _parse_events(raw: str) -> list[tuple[str, dict]]:
     return events
 
 
-@pytest.fixture
-async def app():
-    app = FastAPI()
-    app.include_router(router)
-    app.dependency_overrides[get_market_data_settings] = lambda: MarketDataSettings(
-        sim_seed=1, sse_push_interval=0.05
-    )
+def test_format_sse():
+    assert format_sse({"a": 1}, event="prices") == 'event: prices\ndata: {"a":1}\n\n'
+    assert format_sse({"a": 1}) == 'data: {"a":1}\n\n'
+
+
+async def test_snapshot_then_deltas():
     service = MarketDataService(SimulatedMarketDataSource(seed=1, tick_interval=0.05), PriceCache())
     await service.start(["AAPL", "MSFT"])
-    app.state.market = service
-    yield app
-    await service.stop()
+    try:
+        settings = MarketDataSettings(sse_push_interval=0.05)
+        chunks = [c async for c in price_events(_StubRequest(checks_before_disconnect=8), service, settings)]
+    finally:
+        await service.stop()
 
-
-async def test_snapshot_then_deltas(app):
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        async with client.stream("GET", "/api/stream/prices") as resp:
-            assert resp.headers["content-type"].startswith("text/event-stream")
-            buf = ""
-            async for chunk in resp.aiter_text():
-                buf += chunk
-                if buf.count("\n\n") >= 4:       # retry + snapshot + >=2 price events
-                    break
-    events = _parse_events(buf)
+    assert chunks[0] == "retry: 2000\n\n"
+    events = _parse_events("".join(chunks))
     assert events[0][0] == "snapshot"
     assert {t["ticker"] for t in events[0][1]["ticks"]} == {"AAPL", "MSFT"}
-    assert events[1][0] == "prices"
-    tick = events[1][1]["ticks"][0]
+    assert events[0][1]["source"] == "simulator"
+    deltas = [e for name, e in events[1:] if name == "prices"]
+    assert deltas, "simulator ticks every 50 ms; expected at least one prices event"
+    tick = deltas[0]["ticks"][0]
     assert set(tick) == {"ticker", "price", "prev_price", "prev_close", "change", "change_pct", "direction", "timestamp"}
     assert tick["direction"] in {"up", "down", "flat"}
+
+
+async def test_keepalive_when_nothing_changes():
+    # A source whose prices never move: only keep-alive comments after the snapshot.
+    service = MarketDataService(SimulatedMarketDataSource(seed=1, tick_interval=60.0), PriceCache())
+    await service.start(["AAPL"])
+    try:
+        settings = MarketDataSettings(sse_push_interval=0.02, sse_keepalive_interval=0.05)
+        chunks = [c async for c in price_events(_StubRequest(checks_before_disconnect=10), service, settings)]
+    finally:
+        await service.stop()
+    assert ": keepalive\n\n" in chunks
+    assert not any(c.startswith("event: prices") for c in chunks)
 ```
 
 ### 13.7 E2E hooks
