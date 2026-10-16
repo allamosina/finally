@@ -45,6 +45,25 @@ Requires Docker.
 
 Stop with `./scripts/stop_mac.sh` or `.\scripts\stop_windows.ps1`. This removes the container and never touches `db/`. Data persists in `db/finally.db`. To reset, call `POST /api/reset` or delete `db/finally.db`.
 
+### Run without Docker
+
+For local development. Needs `uv` and Node 20.
+
+```bash
+cd backend && uv sync && cd ..
+cd frontend && npm ci && npm run build && cd ..
+cd backend && STATIC_DIR=../frontend/out LLM_MOCK=true .venv/bin/uvicorn app.main:app --port 8000
+```
+
+Then open `http://localhost:8000`. Drop `LLM_MOCK=true` and set `OPENROUTER_API_KEY` in `.env` for live chat. The database is created at `db/finally.db`.
+
+### Resetting data
+
+Two ways, both return to the seed state ($10,000 cash, the ten default tickers):
+
+- Call `curl -X POST http://localhost:8000/api/reset` while the app is running.
+- Stop the app and delete `db/finally.db`.
+
 ### Market simulator demo
 
 The price simulator (`backend/app/market/`) can be watched on its own in a terminal, no Docker or dependencies needed:

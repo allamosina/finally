@@ -20,14 +20,14 @@ Status values: `todo` · `in-progress` · `blocked` · `review` · `done`.
 |---|---|---|---|---|
 | W2-BE | backend-engineer | Portfolio + watchlist services and routes, snapshot task (30 s), reset route; run backend with `STATIC_DIR=../frontend/out` and confirm SPA loads; thin `/api/chat` + `/api/chat/history` routes | done (static serving verified via ASGI; browser check by user) | — |
 | W2-LLM | llm-engineer | Action executor, `chat()` end to end (route is backend-engineer's) | done | verified against real portfolio service in mock mode, 41 tests |
-| W2-FE | frontend-engineer | Positions table, heatmap, P&L chart, chat panel with action chips, connection status dot; switch mocks to live API as route groups are announced | in-progress | — |
+| W2-FE | frontend-engineer | Positions table, heatmap, P&L chart, chat panel with action chips, connection status dot; switch mocks to live API as route groups are announced | done | 35 tests, verified vs backend via ASGI + mock UI in Playwright |
 
 ## Wave 3 (integration)
 
 | ID | Owner | Task | Status | Blocked on |
 |---|---|---|---|---|
-| W3-OPS | devops-engineer | Full image build, `start_mac.sh` end to end, health poll, browser opens | todo | W2-* |
-| W3-QA | integration-tester | Unskip specs, run suite against compose stack with `LLM_MOCK=true`, report failures to owners, maintain `test/ISSUES.md` | todo | W3-OPS |
+| W3-OPS | devops-engineer | Full image build, `start_mac.sh` end to end, health poll, browser opens | blocked | user: `uv lock` + Docker access |
+| W3-QA | integration-tester | Unskip specs, run suite against compose stack with `LLM_MOCK=true`, report failures to owners, maintain `test/ISSUES.md` | in-progress | live server: user enables allowLocalBinding or runs uvicorn |
 | W3-ALL | everyone | Fix what the tester reports before starting anything new | todo | W3-QA |
 | W3-REVIEW | integration-tester | Final review after suite is green; lead appends it to `planning/REVIEW.md` | todo | W3-QA green |
 
@@ -42,3 +42,4 @@ Status values: `todo` · `in-progress` · `blocked` · `review` · `done`.
 - 2026-10-16 21:30: backend suite 173 passed with no env vars (tests/conftest.py guards). Chat route: 503 unconfigured, 502 on transport error, mock chat verified through the real route. SSE sends snapshot on connect and empty-set heartbeat every 1 s.
 - 2026-10-16 21:40: frontend/out builds (next build --webpack), 31 frontend unit tests pass; backend verified static serving + SPA fallback via ASGI. User told how to run the app on :8000.
 - 2026-10-16 21:50: wave 1 committed as 1064d9d (105 files). W2-FE in progress; all other W1/W2 tasks done. Wave 3 waits on W2-FE.
+- 2026-10-16 22:00: wave 2 committed. Wave 3 started: W3-QA needs a live :8000 server (binding blocked), W3-OPS needs uv.lock + Docker from the user.
