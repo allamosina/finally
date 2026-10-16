@@ -6,7 +6,7 @@ This is the capstone project for an agentic AI coding course. The application is
 
 ## Status
 
-Planning phase. The specification is complete; the `frontend/`, `backend/`, `scripts/` and `test/` directories described below do not exist yet.
+Early build. The specification is complete. `backend/app/market/` (price cache and simulator) and a terminal demo exist; the FastAPI app, `frontend/`, `scripts/` and `test/` do not yet.
 
 ## What it does
 
@@ -42,6 +42,18 @@ One Docker container, one port.
 
 Stop with `./scripts/stop_mac.sh` or `.\scripts\stop_windows.ps1`. Data persists in `db/`. To reset, call `POST /api/reset` or delete `db/finally.db`.
 
+### Market simulator demo
+
+The price simulator (`backend/app/market/`) can be watched on its own in a terminal, no Docker or dependencies needed:
+
+```bash
+python3 backend/demo_market.py              # live tape, Ctrl+C to stop
+python3 backend/demo_market.py --seconds 20 --seed 42
+python3 backend/demo_market.py --json       # the SSE payload per tick
+```
+
+It shows seed prices, live GBM ticks with sparklines, a `prime()` / `set_tickers()` sequence, and ends with the source's `health()` and a contract checklist. See `--help` for all options.
+
 ## Repository layout
 
 ```
@@ -49,7 +61,7 @@ planning/          Project specification (PLAN.md) and agent review log (REVIEW.
 .claude/           Agents, commands, skills and settings for Claude Code
 independent-reviewer/  Claude Code plugin that runs a Codex review on every stop
 frontend/          Next.js app (planned)
-backend/           FastAPI app (planned)
+backend/           FastAPI app (planned); market simulator package and demo exist
 scripts/           Start/stop scripts (planned)
 test/              Playwright E2E tests (planned)
 db/                Runtime SQLite bind mount (planned)

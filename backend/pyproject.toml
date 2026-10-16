@@ -1,0 +1,9 @@
+[project]
+name = "finally-backend"
+version = "0.1.0"
+description = "FinAlly backend: FastAPI API, SSE price stream, market simulator, LLM chat"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
