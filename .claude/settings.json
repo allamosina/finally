@@ -1,18 +1,12 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "agent",
-            "prompt": "Carry out a review of all changes since last commit and write results to the end of a file named planning/REVIEW.md",
-            "timeout": 240
-          }
-        ]
-      }
-    ]
-  },
   "enabledPlugins": {
-    "independent-reviewer@alla-tools": true
-  }
+    "independent-reviewer@alla-tools": true,
+    "frontend-design@anthropic-plugin-directory": true,
+    "context7@anthropic-plugin-directory": true,
+    "playwright@anthropic-plugin-directory": true
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }, 
+  "teammateMode": "in-process"
 }

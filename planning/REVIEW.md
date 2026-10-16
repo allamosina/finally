@@ -85,3 +85,22 @@ Verified by running: `python3 backend/demo_market.py` in plain, JSON and live-ta
 - `set_tickers()` in the simulator forgets `_SimState` for dropped tickers, so re-adding re-seeds at the seed price as MARKET_SIMULATOR.md §6 says.
 - `to_sse_payload()` in the demo emits exactly the PLAN §6 event shape (`ts` ISO-8601 `Z`, `prices[]` with `ticker, price, prev_price, session_open, change_pct, direction`), which the SSE route can lift as-is.
 - The package imports without FastAPI or the database, as MARKET_INTERFACE.md §2 requires.
+
+---
+
+## 2026-10-16 — Review of uncommitted changes (working tree vs fd8edf1)
+
+**Scope**: one file, `.claude/settings.json`. Three plugins added to `enabledPlugins` (`frontend-design`, `context7`, `playwright`, all `@anthropic-plugin-directory`) and a new `env` block setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. No application code touched.
+
+Verified: `jq -e` parses the file; existing `hooks.Stop` entry and `independent-reviewer@alla-tools` are preserved; the three plugin names exist in the registered official marketplace manifest; `frontend-design` and `playwright` are already in the local install cache, `context7` is not and will install on next session start.
+
+### Should fix
+
+1. **Marketplace id is the legacy alias.** The registered marketplace is named `claude-plugins-official`; `anthropic-plugin-directory` is the older name and works today only because Claude Code treats it as an alias (the user-level settings and install cache use the same spelling). If the alias is ever dropped, teammates cloning the repo would get three "unknown marketplace" warnings. Low risk now; consider switching to `@claude-plugins-official` when the user-level settings are migrated too, so both files agree.
+2. **Project `env` is applied to every collaborator's session.** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in the checked-in file opts anyone who opens this repo into an experimental feature. That is the stated intent for this course project, but it belongs in `settings.local.json` if the repo is ever shared with people who should not be opted in.
+
+### Verified and fine
+
+- JSON valid, keys merge with existing content rather than replacing it.
+- `playwright` enables the `mcp__plugin_playwright_playwright__*` tools used by the PLAN §12 E2E work; `context7` gives agents live library docs; `frontend-design` matches PLAN §2 "visually stunning" goal.
+- `.claude/settings.local.json` (sandbox config) is untouched and still gitignored.
