@@ -1,0 +1,5 @@
+{
+  "user_id": "default",
+  "cash_balance": 10000.0,
+  "watchlist": ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "NFLX"]
+}

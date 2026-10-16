@@ -39,8 +39,15 @@ class PriceCache:
             self._version += 1
             self._changed.notify_all()
 
-    def drop(self, ticker: str) -> None:
-        self._quotes.pop(ticker, None)
+    async def drop(self, *tickers: str) -> None:
+        """Remove tickers from the cache. Bumps the version and wakes SSE waiters once if
+        anything was removed, so connected clients stop seeing the ticker immediately
+        (not only at the next apply(), which in slow-poll modes can be minutes away)."""
+        async with self._changed:
+            removed = [t for t in tickers if self._quotes.pop(t, None) is not None]
+            if removed:
+                self._version += 1
+                self._changed.notify_all()
 
     # ---- read side -------------------------------------------------------
     @property

@@ -1,0 +1,47 @@
+# E2E stack (PLAN §12). Run from the repo root:
+#   docker compose -f test/docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from playwright
+#   docker compose -f test/docker-compose.test.yml down -v     # drop the throwaway db volume
+#
+# app:        owned jointly with devops-engineer. Built from the repo Dockerfile, LLM_MOCK=true,
+#             fresh EMPTY db volume (a named volume created per run, never the developer's ./db).
+# playwright: owned by integration-tester. Official Playwright image, version pinned to
+#             @playwright/test in test/package.json (keep the two in step).
+name: finally-test
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      LLM_MOCK: "true"
+      OPENROUTER_API_KEY: ""
+    volumes:
+      - finally-test-db:/app/db
+    healthcheck:
+      # python is guaranteed in the runtime image; curl is not.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if b'\"ok\"' in urllib.request.urlopen('http://localhost:8000/api/health').read() else 1)"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.49.1-jammy
+    working_dir: /work
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://app:8000
+      CI: "1"
+      # Specs are skipped until enabled; the lead sets this to "all" in wave 3.
+      E2E_ENABLE: ${E2E_ENABLE:-all}
+    volumes:
+      - ./:/work
+      - playwright-node-modules:/work/node_modules   # keep host (macOS) node_modules out
+    command: sh -c "npm ci && npx playwright test"
+
+volumes:
+  finally-test-db:
+  playwright-node-modules:

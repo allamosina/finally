@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0d1117;
+  --color-panel: #121822;
+  --color-raised: #171f2b;
+  --color-line: #242d3a;
+  --color-line-strong: #33404f;
+  --color-ink: #d5dce5;
+  --color-dim: #8a95a5;
+  --color-faint: #5d6878;
+  --color-accent: #ecad0a;
+  --color-blue: #209dd7;
+  --color-purple: #753991;
+  --color-purple-hi: #8d48ad;
+  --color-up: #26b36f;
+  --color-down: #e5534b;
+
+  --font-sans: "IBM Plex Sans Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Every figure lines up in columns. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-dim);
+  letter-spacing: 0.02em;
+}
+
+:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+input::placeholder {
+  color: var(--color-faint);
+}
+
+/* Price flash: tinted background fading out over ~500 ms. Two names per direction so
+   consecutive same-direction ticks restart the animation. */
+@keyframes flash-up-0 { from { background-color: rgb(38 179 111 / 0.32); } to { background-color: transparent; } }
+@keyframes flash-up-1 { from { background-color: rgb(38 179 111 / 0.32); } to { background-color: transparent; } }
+@keyframes flash-down-0 { from { background-color: rgb(229 83 75 / 0.32); } to { background-color: transparent; } }
+@keyframes flash-down-1 { from { background-color: rgb(229 83 75 / 0.32); } to { background-color: transparent; } }
+.flash-up-0 { animation: flash-up-0 500ms ease-out; }
+.flash-up-1 { animation: flash-up-1 500ms ease-out; }
+.flash-down-0 { animation: flash-down-0 500ms ease-out; }
+.flash-down-1 { animation: flash-down-1 500ms ease-out; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.dot-pulse { animation: pulse-dot 1.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-up-0, .flash-up-1, .flash-down-0, .flash-down-1 { animation-duration: 1ms; }
+  .dot-pulse { animation: none; }
+}
+
+/* Thin scrollbars that match the panels. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none;
+}

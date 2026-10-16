@@ -28,9 +28,11 @@ One Docker container, one port.
 | Database | SQLite at `db/finally.db`, bind-mounted for persistence |
 | LLM | LiteLLM → OpenRouter (`openai/gpt-oss-120b` on Cerebras) with structured outputs |
 
-## Running (once built)
+## Running
 
-1. Copy `.env.example` to `.env` and set `OPENROUTER_API_KEY`. Set `LLM_MOCK=true` instead to run without a key.
+Requires Docker.
+
+1. Copy `.env.example` to `.env` and set `OPENROUTER_API_KEY`. Set `LLM_MOCK=true` instead to run without a key. If `.env` is missing the script warns and continues; chat then reports "LLM not configured".
 2. Start the container:
 
    ```bash
@@ -38,9 +40,10 @@ One Docker container, one port.
    .\scripts\start_windows.ps1   # Windows PowerShell
    ```
 
+   The script builds the image if it is missing (`--build` / `-Build` forces a rebuild), replaces any running `finally` container, mounts `./db` at `/app/db`, waits for `GET /api/health` to report `status: ok`, prints the URL and opens the browser (`--no-open` / `-NoOpen` to skip). It is safe to run repeatedly.
 3. Open `http://localhost:8000`.
 
-Stop with `./scripts/stop_mac.sh` or `.\scripts\stop_windows.ps1`. Data persists in `db/`. To reset, call `POST /api/reset` or delete `db/finally.db`.
+Stop with `./scripts/stop_mac.sh` or `.\scripts\stop_windows.ps1`. This removes the container and never touches `db/`. Data persists in `db/finally.db`. To reset, call `POST /api/reset` or delete `db/finally.db`.
 
 ### Market simulator demo
 

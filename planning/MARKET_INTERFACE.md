@@ -121,8 +121,13 @@ class PriceCache:
             self._version += 1
             self._changed.notify_all()
 
-    def drop(self, ticker: str) -> None:
-        self._quotes.pop(ticker, None)
+    async def drop(self, *tickers: str) -> None:
+        """Remove tickers; bump the version and wake SSE waiters once if anything was removed."""
+        async with self._changed:
+            removed = [t for t in tickers if self._quotes.pop(t, None) is not None]
+            if removed:
+                self._version += 1
+                self._changed.notify_all()
 
     # ---- read side -------------------------------------------------------
     def get(self, ticker: str) -> Quote | None:
@@ -186,11 +191,14 @@ class MarketDataSource(ABC):
     # ---- ticker set -------------------------------------------------------
     async def set_tickers(self, tickers: set[str]) -> None:
         """Replace the priced set. Added tickers are primed before this returns;
-        removed tickers are dropped from the cache."""
-        added, removed = tickers - self._tickers, self._tickers - tickers
-        self._tickers = set(tickers)
-        for t in removed:
-            self.cache.drop(t)
+        removed tickers are dropped from the cache. Removal is computed against the cache
+        too, so a ticker that was only ever prime()d ages out here."""
+        tickers = set(tickers)
+        added = tickers - self._tickers
+        removed = (self._tickers | self.cache.tickers()) - tickers
+        self._tickers = tickers
+        if removed:
+            await self.cache.drop(*removed)
         if added:
             await self.prime(added)
 

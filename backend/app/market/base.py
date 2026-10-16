@@ -41,11 +41,15 @@ class MarketDataSource(ABC):
     # ---- ticker set -------------------------------------------------------
     async def set_tickers(self, tickers: set[str]) -> None:
         """Replace the priced set. Added tickers are primed before this returns;
-        removed tickers are dropped from the cache."""
-        added, removed = tickers - self._tickers, self._tickers - tickers
-        self._tickers = set(tickers)
-        for t in removed:
-            self.cache.drop(t)
+        removed tickers are dropped from the cache. Removal is computed against the
+        cache, not only against the previous set, so a ticker that was only ever
+        prime()d (e.g. for a failed buy) also ages out here."""
+        tickers = set(tickers)
+        added = tickers - self._tickers
+        removed = (self._tickers | self.cache.tickers()) - tickers
+        self._tickers = tickers
+        if removed:
+            await self.cache.drop(*removed)
         if added:
             await self.prime(added)
 
