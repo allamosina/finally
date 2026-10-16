@@ -12,7 +12,7 @@ export function MainChart({ ticker, quote, points }: { ticker: string | null; qu
   const change = quote ? quote.price - quote.session_open : null;
 
   return (
-    <section className="panel flex flex-col" aria-label="Price chart" data-testid="main-chart">
+    <section className="panel flex flex-col" aria-label="Price chart" data-testid="main-chart" data-ticker={ticker ?? ""}>
       <div className="flex flex-wrap items-end gap-x-5 gap-y-1 border-b border-line px-4 pb-2 pt-3">
         <div className="flex flex-col">
           <span className="text-[12px] text-dim">Selected</span>

@@ -62,18 +62,21 @@ const Row = memo(function Row({
       >
         {ticker}
       </button>
-      <Sparkline points={spark} />
+      <div data-testid={`watchlist-sparkline-${ticker}`}>
+        <Sparkline points={spark} />
+      </div>
       <div className="flex w-[92px] flex-col items-end">
-        <span data-testid={`price-${ticker}`} className={`num rounded-sm px-1 text-ink ${flash}`}>
+        <span data-testid={`watchlist-price-${ticker}`} className={`num rounded-sm px-1 text-ink ${flash}`}>
           {formatPrice(quote?.price)}
         </span>
-        <span className={`num px-1 text-[11px] ${tone}`}>{formatPct(quote?.change_pct)}</span>
+        <span data-testid={`watchlist-change-${ticker}`} className={`num px-1 text-[11px] ${tone}`}>{formatPct(quote?.change_pct)}</span>
       </div>
       <button
         type="button"
+        data-testid={`watchlist-remove-${ticker}`}
         aria-label={`Remove ${ticker} from watchlist`}
         title={`Remove ${ticker}`}
-        className="absolute right-1 top-1 hidden h-4 w-4 items-center justify-center rounded-sm text-[12px] leading-none text-faint hover:bg-line hover:text-ink focus-visible:flex group-hover:flex"
+        className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-sm text-[12px] leading-none text-faint opacity-0 hover:bg-line hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation();
           onRemove(ticker);
@@ -139,7 +142,7 @@ export function Watchlist({
   };
 
   return (
-    <section className="panel flex flex-col" aria-label="Watchlist" data-testid="watchlist">
+    <section className="panel flex flex-col" aria-label="Watchlist" data-testid="watchlist-panel">
       <div className="flex items-center justify-between border-b border-line px-3 py-2">
         <h2 className="panel-title">Watchlist</h2>
         <span className="num text-[11px] text-faint">{items.length}</span>
@@ -163,7 +166,7 @@ export function Watchlist({
           <button
             type="submit"
             disabled={busy || !draft.trim()}
-            data-testid="watchlist-add-button"
+            data-testid="watchlist-add-submit"
             className="rounded-sm border border-line-strong px-2.5 text-dim hover:border-blue hover:text-ink disabled:opacity-40"
           >
             Add

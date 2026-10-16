@@ -34,7 +34,7 @@ export function Header({
       </div>
 
       <dl className="flex items-center gap-6">
-        <Figure label="Portfolio value" testId="header-total">
+        <Figure label="Portfolio value" testId="header-total-value">
           <span className="text-[18px] text-ink">{loaded ? formatMoney(portfolio.total_value) : "—"}</span>
         </Figure>
         <Figure label="Cash" testId="header-cash">
